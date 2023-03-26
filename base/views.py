@@ -6,8 +6,8 @@ from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import authenticate, login, logout
-from .models import Room, Topic, Message
-from .forms import RoomForm
+from .models import Room, Topic, Message, Profile
+from .forms import RoomForm, UserForm
 
 
 # Create your views here.
@@ -53,6 +53,8 @@ def registerPage(request):
             user = form.save(commit=False)
             user.username = user.username.lower()
             user.save()
+            user_profile = Profile(user=user)
+            user_profile.save()
             login(request, user)
             return redirect('home')
         else:
@@ -63,6 +65,30 @@ def registerPage(request):
         'form': form
     }
     return render(request, 'base/login_register.html', context)
+
+
+@login_required(login_url="login")
+def updateUser(request):
+    # No need for the id because the user will be the
+    # logged in user
+    user = request.user
+    # form = UserForm(instance=user)
+
+    if request.method == "POST":
+
+        data = request.POST
+        user_profile = Profile.objects.get(user=user)
+        user.username = data['username']
+        user.email = data['email']
+        if request.FILES:
+            user_profile.image = request.FILES['avatar']
+        user_profile.bio = data['user_bio']
+        user.save()
+        user_profile.save()
+        return redirect('user', pk=user.id)
+
+    context = {}
+    return render(request, 'base/edit-user.html', context)
 
 
 def logoutUser(request):
@@ -92,7 +118,7 @@ def home(request):
         Q(name__icontains=q) |
         Q(description__icontains=q)
     )
-    topics = Topic.objects.all()
+    topics = Topic.objects.all()[0:5]
 
     room_count = rooms.count()
 
@@ -200,3 +226,22 @@ def deleteRoom(request, pk):
         room.delete()
         return redirect("home")
     return render(request, 'base/delete.html', {"obj": room})
+
+
+def topicsPage(request):
+
+    q = request.GET.get('q') if request.GET.get('q') != None else ''
+    topics = Topic.objects.filter(
+        Q(name__icontains=q)
+    )
+
+    context = {'topics': topics}
+    return render(request, 'base/topics.html', context)
+
+
+def activityPage(request):
+    room_messages = Message.objects.filter(
+
+    )
+    context = {"room_messages": room_messages}
+    return render(request, 'base/activity.html', context)
